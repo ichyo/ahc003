@@ -46,7 +46,7 @@ impl<R: BufRead, W: Write> Environment for RemoteEnvironment<R, W> {
         self.next_query.clone()
     }
 
-    fn do_answer(&mut self, path: Vec<Dir>) -> f64 {
+    fn do_answer(&mut self, path: &[Dir]) -> f64 {
         writeln!(
             self.writer,
             "{}",

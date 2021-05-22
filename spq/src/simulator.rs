@@ -54,7 +54,7 @@ impl Environment for Simulator {
         }
     }
 
-    fn do_answer(&mut self, path: Vec<Dir>) -> f64 {
+    fn do_answer(&mut self, path: &[Dir]) -> f64 {
         let query = self.queries[self.turn].clone();
         let length = self.compute_path_length(&path).expect("invalid path");
         let best = self.compute_shortest_path(&query.query);
@@ -68,7 +68,7 @@ impl Environment for Simulator {
         self.score_details.push(ScoreDetail { length, best });
         self.score = self.score * 0.998 + ratio;
         self.turn += 1;
-        ratio * query.res_factor
+        length as f64 * query.res_factor
     }
 }
 

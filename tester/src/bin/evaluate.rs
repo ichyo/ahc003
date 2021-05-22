@@ -1,7 +1,7 @@
 use clap::Clap;
 use spq::simulator::Simulator;
 use spq::solver::run_solver;
-use std::{sync::mpsc, time::Duration};
+use std::sync::mpsc;
 use threadpool::ThreadPool;
 
 /// Evaluate solver by multiple test cases
@@ -9,7 +9,7 @@ use threadpool::ThreadPool;
 #[clap(name = "hello")]
 struct Arguments {
     /// the number of test cases
-    #[clap(short, long)]
+    #[clap(short, long, default_value = "100")]
     num: u64,
 
     /// concurrency level
