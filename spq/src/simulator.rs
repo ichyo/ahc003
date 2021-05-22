@@ -34,6 +34,12 @@ impl Simulator {
     pub fn raw_score(&self) -> f64 {
         self.score
     }
+
+    /// 0.0 ~ 1.0
+    pub fn ratio_score(&self) -> f64 {
+        self.score / 432.4677387766579
+    }
+
     pub fn atcoder_score(&self) -> i64 {
         (self.score * 2312311.0).round() as i64
     }

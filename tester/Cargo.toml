@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 spq = { path = "../spq" }
 clap = "3.0.0-beta.2"
+threadpool = "1"
