@@ -50,14 +50,7 @@ impl<R: BufRead, W: Write> Environment for RemoteEnvironment<R, W> {
         writeln!(
             self.writer,
             "{}",
-            path.iter()
-                .map(|d| match d {
-                    Dir::Up => 'U',
-                    Dir::Down => 'D',
-                    Dir::Left => 'L',
-                    Dir::Right => 'R',
-                })
-                .collect::<String>()
+            path.iter().map(|d| d.to_char()).collect::<String>()
         )
         .expect("write failed");
         self.writer.flush().expect("flush failed");

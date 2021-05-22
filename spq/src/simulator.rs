@@ -3,20 +3,66 @@ use rand::prelude::*;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 
+#[derive(Debug)]
+pub struct ScoreDetail {
+    pub best: u32,
+    pub length: u32,
+}
+
+impl ScoreDetail {
+    pub fn ratio(&self) -> f64 {
+        self.best as f64 / self.length as f64
+    }
+}
+
 pub struct Simulator {
     turn: usize,
     graph: GridGraph,
     queries: Vec<QueryParam>,
     visited: Grid<usize>,
     score: f64,
+    score_details: Vec<ScoreDetail>,
 }
 
 impl Simulator {
+    pub fn queries(&self) -> &Vec<QueryParam> {
+        &self.queries
+    }
+    pub fn score_details(&self) -> &Vec<ScoreDetail> {
+        &self.score_details
+    }
     pub fn raw_score(&self) -> f64 {
         self.score
     }
     pub fn atcoder_score(&self) -> i64 {
         (self.score * 2312311.0).round() as i64
+    }
+}
+
+impl Environment for Simulator {
+    fn next_query(&self) -> Option<Query> {
+        if self.turn < NUM_TURN {
+            Some(self.queries[self.turn].query.clone())
+        } else {
+            None
+        }
+    }
+
+    fn do_answer(&mut self, path: Vec<Dir>) -> f64 {
+        let query = self.queries[self.turn].clone();
+        let length = self.compute_path_length(&path).expect("invalid path");
+        let best = self.compute_shortest_path(&query.query);
+        let ratio = best as f64 / length as f64;
+        assert!(
+            length >= best,
+            "score {} is better than best {}",
+            length,
+            best
+        );
+        self.score_details.push(ScoreDetail { length, best });
+        self.score = self.score * 0.998 + ratio;
+        self.turn += 1;
+        ratio * query.res_factor
     }
 }
 
@@ -116,15 +162,17 @@ impl Simulator {
                 })
                 .collect(),
             score: 0.0,
+            score_details: Vec::new(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-struct QueryParam {
-    query: Query,
-    res_factor: f64,
+pub struct QueryParam {
+    pub query: Query,
+    pub res_factor: f64,
 }
+
 struct GridGraph {
     h_cost: [[u32; GRID_LEN - 1]; GRID_LEN],
     v_cost: [[u32; GRID_LEN]; GRID_LEN - 1],
@@ -132,7 +180,7 @@ struct GridGraph {
 
 impl GridGraph {
     fn get_cost(&self, p: Pos, d: Dir) -> u32 {
-        assert!(p.move_to(d).is_some());
+        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
         match d {
             Dir::Up => self.v_cost[p.r as usize - 1][p.c as usize],
             Dir::Down => self.v_cost[p.r as usize][p.c as usize],
@@ -146,7 +194,7 @@ impl Simulator {
     fn compute_shortest_path(&self, query: &Query) -> u32 {
         let src = query.src;
         let dest = query.dest;
-        let mut dist: Grid<u32> = Grid::new(0);
+        let mut dist: Grid<u32> = Grid::new(u32::max_value());
         let mut prev: Grid<Dir> = Grid::new(Dir::Up);
         let mut queue = BinaryHeap::new();
         dist[src] = 0;
@@ -191,34 +239,13 @@ impl Simulator {
                 Some(np) => np,
                 None => return Err(format!("going outside the map (query {})", self.turn + 1)),
             };
+            sum += self.graph.get_cost(p, d);
 
-            sum += self.graph.get_cost(np, d);
             p = np;
         }
         if p != dest {
             return Err(format!("not an s-t path (query {})", self.turn + 1));
         }
         Ok(sum)
-    }
-}
-
-impl Environment for Simulator {
-    fn next_query(&self) -> Option<Query> {
-        if self.turn < NUM_TURN {
-            Some(self.queries[self.turn].query.clone())
-        } else {
-            None
-        }
-    }
-
-    fn do_answer(&mut self, path: Vec<Dir>) -> f64 {
-        let query = self.queries[self.turn].clone();
-        let length = self.compute_path_length(&path).expect("invalid path");
-        let best = self.compute_shortest_path(&query.query);
-        let ratio = length as f64 / best as f64;
-        assert!(length <= best);
-        self.score = self.score * 0.998 + ratio;
-        self.turn += 1;
-        ratio * query.res_factor
     }
 }

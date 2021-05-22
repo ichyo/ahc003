@@ -20,6 +20,14 @@ impl Dir {
     pub fn iter() -> impl Iterator<Item = Dir> {
         [Dir::Up, Dir::Left, Dir::Down, Dir::Right].iter().cloned()
     }
+    pub fn to_char(&self) -> char {
+        match self {
+            Dir::Up => 'U',
+            Dir::Down => 'D',
+            Dir::Left => 'L',
+            Dir::Right => 'R',
+        }
+    }
 }
 
 pub struct Grid<T: Copy>([[T; GRID_LEN]; GRID_LEN]);
@@ -93,4 +101,14 @@ impl Pos {
 pub struct Query {
     pub src: Pos,
     pub dest: Pos,
+}
+
+impl Query {
+    pub fn height(&self) -> u8 {
+        ((self.src.r as i8) - (self.dest.r as i8)).abs() as u8
+    }
+
+    pub fn width(&self) -> u8 {
+        ((self.src.c as i8) - (self.dest.c as i8)).abs() as u8
+    }
 }
