@@ -32,7 +32,7 @@ impl Record {
     }
 }
 
-struct GraphEstimator2 {
+struct GraphEstimator {
     costs: GridLines<[u32; 2]>,
     mid_x: GridLines<u8>,
     records: Vec<Record>,
@@ -43,7 +43,7 @@ struct GraphEstimator2 {
     loss: i64,
 }
 
-impl Index<EdgeIndex> for GraphEstimator2 {
+impl Index<EdgeIndex> for GraphEstimator {
     type Output = u32;
 
     fn index(&self, index: EdgeIndex) -> &Self::Output {
@@ -56,9 +56,9 @@ impl Index<EdgeIndex> for GraphEstimator2 {
     }
 }
 
-impl GraphEstimator2 {
-    fn new() -> GraphEstimator2 {
-        GraphEstimator2 {
+impl GraphEstimator {
+    fn new() -> GraphEstimator {
+        GraphEstimator {
             costs: GridLines::new([5000, 5000]),
             mid_x: GridLines::new(GRID_LEN as u8 / 2),
             records: Vec::new(),
@@ -256,151 +256,8 @@ impl GraphEstimator2 {
     }
 }
 
-struct GraphEstimator {
-    costs: GridLines<u32>,
-    records: Vec<Record>,
-    // Cache for estimation
-    visit_counts: Vec<GridLines<u32>>,
-    total_costs: Vec<u32>,
-    visited_turns: FxHashMap<LineIndex, FxHashSet<u16>>,
-    loss: i64,
-}
-
-impl Index<EdgeIndex> for GraphEstimator {
-    type Output = u32;
-
-    fn index(&self, index: EdgeIndex) -> &Self::Output {
-        &self.costs[index.line]
-    }
-}
-
-impl GraphEstimator {
-    fn new() -> GraphEstimator {
-        GraphEstimator {
-            costs: GridLines::new(5000),
-            records: Vec::new(),
-            visit_counts: Vec::new(),
-            total_costs: Vec::new(),
-            visited_turns: FxHashMap::default(),
-            loss: 0,
-        }
-    }
-
-    fn validate_cache(&self) {
-        assert!(self.records.len() == self.visit_counts.len());
-        let turn = self.records.len();
-        let mut actual_loss = 0i64;
-        for i in 0..turn {
-            let mut cost_sum = 0;
-            for &edge in &self.records[i].visited {
-                let cost = self.index(edge);
-                cost_sum += cost;
-            }
-            assert!(
-                self.total_costs[i] == cost_sum,
-                "i={} total_costs={} cost_sum={}",
-                i,
-                self.total_costs[i],
-                cost_sum
-            );
-            actual_loss += (cost_sum as i64 - self.records[i].response as i64).abs();
-        }
-        assert!(actual_loss == self.loss);
-    }
-
-    fn insert_new_record(&mut self, query: &Query, path: &[Dir], response: u32) {
-        self.records.push(Record::new(query, path, response));
-        self.update_estimation();
-    }
-
-    fn update_estimation(&mut self) {
-        let start = Instant::now();
-        let time_limit = Duration::from_micros(1500); // TODO: more dynamic
-
-        assert!(
-            self.visit_counts.len() + 1 == self.records.len(),
-            "{} + 1 != {}",
-            self.visit_counts.len(),
-            self.records.len()
-        );
-        let this_turn = self.records.len() - 1;
-        let mut visit_count = GridLines::new(0);
-        let mut total_cost = 0u32;
-
-        for &edge in &self.records[this_turn].visited {
-            let cost = self.index(edge);
-            total_cost += cost;
-
-            self.visited_turns
-                .entry(edge.line)
-                .or_default()
-                .insert(this_turn as u16);
-
-            visit_count[edge.line] += 1;
-        }
-
-        self.loss += (total_cost as i64 - self.records[this_turn].response as i64).abs();
-        self.visit_counts.push(visit_count);
-        self.total_costs.push(total_cost);
-
-        //self.validate_cache(); // TODO: remove when submit
-
-        let mut rng = thread_rng();
-        let mut loops = 0;
-        let mut updates = 0;
-        let start_loss = self.loss;
-        while start.elapsed() <= time_limit {
-            loops += 1;
-            let line = LineIndex::choose(&mut rng);
-            let step = 100;
-            let sign: i64 = if rng.gen::<bool>() { 1 } else { -1 };
-            let cur_cost = self.costs[line];
-            let next_cost = cur_cost as i64 + sign * step;
-            if next_cost < 0 || next_cost > 9000 {
-                continue;
-            }
-            let mut loss_diff = 0i64;
-            if let Some(turns) = self.visited_turns.get(&line) {
-                for &turn in turns {
-                    let turn = turn as usize;
-                    let visit_count = &self.visit_counts[turn];
-                    let response = self.records[turn].response as i64;
-                    let cur_total_cost = self.total_costs[turn] as i64;
-                    let new_total_cost =
-                        self.total_costs[turn] as i64 + sign * step * visit_count[line] as i64;
-                    loss_diff -= (cur_total_cost - response).abs();
-                    loss_diff += (new_total_cost - response).abs();
-                }
-            }
-            if loss_diff < 0 {
-                self.costs[line] = next_cost as u32;
-                self.loss += loss_diff;
-                if let Some(turns) = self.visited_turns.get(&line) {
-                    for &turn in turns {
-                        let visit_count = &self.visit_counts[turn as usize];
-                        let new_total_cost = self.total_costs[turn as usize] as i64
-                            + sign * step * visit_count[line] as i64;
-                        self.total_costs[turn as usize] = new_total_cost as u32;
-                    }
-                }
-                updates += 1;
-            }
-        }
-
-        // self.validate_cache(); // TODO: remove when submit
-
-        trace!(
-            "Finish updating estimation. loss={:6}->{:6} loops={:6} updates={:6}",
-            start_loss,
-            self.loss,
-            loops,
-            updates
-        );
-    }
-}
-
 pub fn run_solver<E: Environment>(env: &mut E) {
-    let mut estimator = GraphEstimator2::new();
+    let mut estimator = GraphEstimator::new();
     while let Some(query) = env.next_query() {
         trace!(
             "Start processing a query ({:2}, {:2}) -> ({:2}, {:2}) width={:2} height={:2}",
