@@ -86,7 +86,7 @@ impl GraphEstimator {
                 self.total_costs[i],
                 cost_sum
             );
-            actual_loss += (cost_sum as i64 - self.records[i].response as i64).abs();
+            actual_loss += (cost_sum as i64 - self.records[i].response as i64).pow(2);
         }
         assert!(actual_loss == self.loss);
     }
@@ -126,7 +126,7 @@ impl GraphEstimator {
             }
         }
 
-        self.loss += (total_cost as i64 - self.records[this_turn].response as i64).abs();
+        self.loss += (total_cost as i64 - self.records[this_turn].response as i64).pow(2);
         self.visit_counts.push(visit_count);
         self.total_costs.push(total_cost);
 
@@ -158,8 +158,8 @@ impl GraphEstimator {
                         let cur_total_cost = self.total_costs[turn] as i64;
                         let new_total_cost = self.total_costs[turn] as i64
                             + sign * step * visit_count[line][part] as i64;
-                        loss_diff -= (cur_total_cost - response).abs();
-                        loss_diff += (new_total_cost - response).abs();
+                        loss_diff -= (cur_total_cost - response).pow(2);
+                        loss_diff += (new_total_cost - response).pow(2);
                     }
                 }
                 if loss_diff < 0 {
@@ -207,8 +207,8 @@ impl GraphEstimator {
                         let cost_diff =
                             self.costs[line][new_part] as i64 - self.costs[line][old_part] as i64;
 
-                        loss_diff -= (cur_total_cost - response).abs();
-                        loss_diff += (cur_total_cost + cost_diff - response).abs();
+                        loss_diff -= (cur_total_cost - response).pow(2);
+                        loss_diff += (cur_total_cost + cost_diff - response).pow(2);
                     }
                 }
                 if loss_diff < 0 {
