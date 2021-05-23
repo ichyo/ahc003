@@ -20,6 +20,7 @@ pub struct Simulator {
     queries: Vec<QueryParam>,
     visited: Grid<usize>,
     score: f64,
+    best_score: f64,
     score_details: Vec<ScoreDetail>,
 }
 
@@ -36,7 +37,8 @@ impl Simulator {
 
     /// 0.0 ~ 1.0
     pub fn ratio_score(&self) -> f64 {
-        self.score / 432.4677387766579
+        //self.score / 432.4677387766579
+        self.score / self.best_score
     }
 
     pub fn atcoder_score(&self) -> i64 {
@@ -66,7 +68,23 @@ impl Environment for Simulator {
         );
         self.score_details.push(ScoreDetail { length, best });
         self.score = self.score * 0.998 + ratio;
+        self.best_score = self.best_score * 0.998 + 1.0;
         self.turn += 1;
+
+        debug!(
+            "Got a path: best={:6} output={:6} ratio={:.2}. Ratio score is {:.4}",
+            best,
+            length,
+            ratio,
+            self.ratio_score(),
+        );
+        debug!(
+            "Returning a response: {:6} * {:.2} = {:.2}",
+            length,
+            query.res_factor,
+            length as f64 * query.res_factor
+        );
+
         length as f64 * query.res_factor
     }
 }
@@ -164,6 +182,7 @@ impl Simulator {
                 })
                 .collect(),
             score: 0.0,
+            best_score: 0.0,
             score_details: Vec::new(),
         }
     }
