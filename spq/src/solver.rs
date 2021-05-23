@@ -35,5 +35,7 @@ fn construct_path(src: Pos, dest: Pos) -> Vec<Dir> {
 }
 
 pub fn run_solver<E: Environment>(env: &mut E) {
-    while let Some(query) = env.next_query() {}
+    while let Some(query) = env.next_query() {
+        info!("hoge");
+    }
 }
