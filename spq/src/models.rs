@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::ops::{Index, IndexMut};
 
 pub const NUM_TURN: usize = 1000;
@@ -105,6 +106,83 @@ impl Pos {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Axis {
+    Horizontal, // left-right. row
+    Vertical,   // up-down. col
+}
+
+impl Axis {
+    pub fn iter() -> impl Iterator<Item = Axis> {
+        [Axis::Horizontal, Axis::Vertical].iter().cloned()
+    }
+
+    pub fn as_usize(&self) -> usize {
+        match &self {
+            Axis::Horizontal => 0,
+            Axis::Vertical => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct LineIndex {
+    pub axis: Axis,
+    pub index: u8, // index of lines. row if horizontal.
+}
+
+impl LineIndex {
+    pub fn iter() -> impl Iterator<Item = LineIndex> {
+        Axis::iter()
+            .flat_map(move |axis| (0..GRID_LEN as u8).map(move |index| LineIndex { axis, index }))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct EdgeIndex {
+    pub line: LineIndex,
+    pub x: u8, // index within a single line. col if horizontal.
+}
+
+impl LineIndex {
+    pub fn new(axis: Axis, index: u8) -> Self {
+        assert!((index as usize) < GRID_LEN);
+        LineIndex { axis, index }
+    }
+    pub fn from_move(p: Pos, d: Dir) -> Self {
+        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
+        match d {
+            Dir::Up | Dir::Down => LineIndex {
+                axis: Axis::Vertical,
+                index: p.c,
+            },
+            Dir::Left | Dir::Right => LineIndex {
+                axis: Axis::Horizontal,
+                index: p.r,
+            },
+        }
+    }
+}
+
+impl EdgeIndex {
+    pub fn new(line: LineIndex, x: u8) -> Self {
+        assert!(x as usize + 1 < GRID_LEN);
+        EdgeIndex { line, x }
+    }
+
+    pub fn from_move(p: Pos, d: Dir) -> Self {
+        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
+        let line = LineIndex::from_move(p, d);
+        let x = match d {
+            Dir::Up => p.r - 1,
+            Dir::Down => p.r,
+            Dir::Left => p.c - 1,
+            Dir::Right => p.c,
+        };
+        EdgeIndex { line, x }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Query {
     pub src: Pos,
@@ -121,57 +199,81 @@ impl Query {
     }
 }
 
-pub struct ArrayGridGraph<T> {
-    pub horizontal: [[T; GRID_LEN - 1]; GRID_LEN],
-    pub vertical: [[T; GRID_LEN]; GRID_LEN - 1],
+#[derive(Clone)]
+pub struct GridLines<T: Copy>([[T; GRID_LEN]; 2]);
+
+impl<T: Copy> GridLines<T> {
+    pub fn new(value: T) -> GridLines<T> {
+        GridLines([[value; GRID_LEN]; 2])
+    }
 }
 
-impl<T: Copy> ArrayGridGraph<T> {
-    pub fn new(value: T) -> ArrayGridGraph<T> {
-        ArrayGridGraph {
-            horizontal: [[value; GRID_LEN - 1]; GRID_LEN],
-            vertical: [[value; GRID_LEN]; GRID_LEN - 1],
-        }
+impl<T: Copy> Index<LineIndex> for GridLines<T> {
+    type Output = T;
+
+    fn index(&self, index: LineIndex) -> &Self::Output {
+        &self.0[index.axis.as_usize()][index.index as usize]
     }
+}
+
+impl<T: Copy> IndexMut<LineIndex> for GridLines<T> {
+    fn index_mut(&mut self, index: LineIndex) -> &mut Self::Output {
+        &mut self.0[index.axis.as_usize()][index.index as usize]
+    }
+}
+
+pub struct GridGraph<T: Copy>(GridLines<[T; GRID_LEN - 1]>);
+
+impl<T: Copy> GridGraph<T> {
+    pub fn new(value: T) -> GridGraph<T> {
+        GridGraph(GridLines::new([value; GRID_LEN - 1]))
+    }
+}
+
+impl<T: Copy + Default> GridGraph<T> {
     pub fn from_arrays(
         horizontal: [[T; GRID_LEN - 1]; GRID_LEN],
         vertical: [[T; GRID_LEN]; GRID_LEN - 1],
-    ) -> ArrayGridGraph<T> {
-        ArrayGridGraph {
-            horizontal,
-            vertical,
+    ) -> GridGraph<T> {
+        let mut graph = GridGraph::new(T::default());
+        for axis in Axis::iter() {
+            for idx in 0..GRID_LEN {
+                let line = LineIndex::new(axis, idx as u8);
+                for x in 0..GRID_LEN - 1 {
+                    let edge = EdgeIndex::new(line, x as u8);
+                    let value = match axis {
+                        Axis::Horizontal => horizontal[idx][x],
+                        Axis::Vertical => vertical[x][idx],
+                    };
+                    graph[edge] = value;
+                }
+            }
         }
+        graph
     }
 }
 
-impl<T> ArrayGridGraph<T> {
-    pub fn get(&self, p: Pos, d: Dir) -> &T {
-        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
-        match d {
-            Dir::Up => &self.vertical[p.r as usize - 1][p.c as usize],
-            Dir::Down => &self.vertical[p.r as usize][p.c as usize],
-            Dir::Left => &self.horizontal[p.r as usize][p.c as usize - 1],
-            Dir::Right => &self.horizontal[p.r as usize][p.c as usize],
-        }
-    }
+impl<T: Copy> Index<EdgeIndex> for GridGraph<T> {
+    type Output = T;
 
-    pub fn get_mut(&mut self, p: Pos, d: Dir) -> &mut T {
-        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
-        match d {
-            Dir::Up => &mut self.vertical[p.r as usize - 1][p.c as usize],
-            Dir::Down => &mut self.vertical[p.r as usize][p.c as usize],
-            Dir::Left => &mut self.horizontal[p.r as usize][p.c as usize - 1],
-            Dir::Right => &mut self.horizontal[p.r as usize][p.c as usize],
-        }
+    fn index(&self, index: EdgeIndex) -> &Self::Output {
+        &self.0[index.line][index.x as usize]
     }
 }
 
-pub trait GridGraph<T> {
-    fn get(&self, p: Pos, d: Dir) -> &T;
+impl<T: Copy> IndexMut<EdgeIndex> for GridGraph<T> {
+    fn index_mut(&mut self, index: EdgeIndex) -> &mut Self::Output {
+        &mut self.0[index.line][index.x as usize]
+    }
 }
 
-impl<T> GridGraph<T> for ArrayGridGraph<T> {
-    fn get(&self, p: Pos, d: Dir) -> &T {
-        self.get(p, d)
+#[derive(PartialOrd, PartialEq)]
+pub struct UnwrapOrd<T: PartialOrd + PartialEq>(pub T);
+
+impl<T: PartialOrd + PartialEq> Eq for UnwrapOrd<T> {}
+
+impl<T: PartialOrd + PartialEq> Ord for UnwrapOrd<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.partial_cmp(&other.0).unwrap()
     }
 }

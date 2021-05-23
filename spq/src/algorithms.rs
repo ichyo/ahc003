@@ -1,20 +1,13 @@
 use crate::models::*;
 use num_traits::{Bounded, Num};
-use std::cmp::{Ordering, Reverse};
+use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::ops::Index;
 
-#[derive(PartialOrd, PartialEq)]
-pub struct UnwrapOrd<T: PartialOrd + PartialEq>(pub T);
-
-impl<T: PartialOrd + PartialEq> Eq for UnwrapOrd<T> {}
-
-impl<T: PartialOrd + PartialEq> Ord for UnwrapOrd<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.partial_cmp(&other.0).unwrap()
-    }
-}
-
-pub fn compute_shortest_cost<G: GridGraph<T>, T: Bounded + Num + Copy + PartialOrd>(
+pub fn compute_shortest_cost<
+    G: Index<EdgeIndex, Output = T>,
+    T: Bounded + Num + Copy + PartialOrd,
+>(
     graph: &G,
     src: Pos,
     dest: Pos,
@@ -32,8 +25,9 @@ pub fn compute_shortest_cost<G: GridGraph<T>, T: Bounded + Num + Copy + PartialO
         }
         for dir in Dir::iter() {
             if let Some(q) = p.move_to(dir) {
-                if dist[q] > d + *graph.get(p, dir) {
-                    dist[q] = d + *graph.get(p, dir);
+                let edge = EdgeIndex::from_move(p, dir);
+                if dist[q] > d + graph[edge] {
+                    dist[q] = d + graph[edge];
                     queue.push(Reverse((UnwrapOrd(dist[q]), q)));
                 }
             }
@@ -42,7 +36,10 @@ pub fn compute_shortest_cost<G: GridGraph<T>, T: Bounded + Num + Copy + PartialO
     dist[dest]
 }
 
-pub fn compute_shortest_path<G: GridGraph<T>, T: Bounded + Num + Copy + PartialOrd>(
+pub fn compute_shortest_path<
+    G: Index<EdgeIndex, Output = T>,
+    T: Bounded + Num + Copy + PartialOrd,
+>(
     graph: &G,
     src: Pos,
     dest: Pos,
@@ -61,8 +58,9 @@ pub fn compute_shortest_path<G: GridGraph<T>, T: Bounded + Num + Copy + PartialO
         }
         for dir in Dir::iter() {
             if let Some(q) = p.move_to(dir) {
-                if dist[q] > d + *graph.get(p, dir) {
-                    dist[q] = d + *graph.get(p, dir);
+                let edge = EdgeIndex::from_move(p, dir);
+                if dist[q] > d + graph[edge] {
+                    dist[q] = d + graph[edge];
                     prev[q] = dir;
                     queue.push(Reverse((UnwrapOrd(dist[q]), q)));
                 }

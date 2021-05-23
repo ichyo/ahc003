@@ -54,7 +54,7 @@ impl GraphParams {
 pub struct Simulator {
     turn: usize,
     graph_params: GraphParams,
-    graph: ArrayGridGraph<u32>,
+    graph: GridGraph<u32>,
     queries: Vec<QueryParam>,
     visited: Grid<usize>,
     score: f64,
@@ -248,7 +248,7 @@ impl Simulator {
         Simulator {
             turn: 0,
             graph_params,
-            graph: ArrayGridGraph::from_arrays(h, v),
+            graph: GridGraph::from_arrays(h, v),
             visited: Grid::new(usize::max_value()),
             queries: (0..NUM_TURN)
                 .map(|i| QueryParam {
@@ -293,7 +293,8 @@ impl Simulator {
                 Some(np) => np,
                 None => return Err(format!("going outside the map (query {})", self.turn + 1)),
             };
-            sum += self.graph.get(p, d);
+            let edge = EdgeIndex::from_move(p, d);
+            sum += self.graph[edge];
 
             p = np;
         }
