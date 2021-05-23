@@ -1,3 +1,4 @@
+use log::info;
 use std::fs::File;
 use std::io::Write;
 
@@ -5,6 +6,8 @@ use clap::Clap;
 use spq::models::*;
 use spq::simulator::Simulator;
 use spq::solver::run_solver;
+
+use env_logger::Env;
 
 /// Try out a single test case
 #[derive(Clap, Debug)]
@@ -38,6 +41,8 @@ impl Environment for TryoutEnvironment {
 }
 
 fn main() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+
     let args = Arguments::parse();
 
     let file = args.output.map(|s| File::create(s).unwrap());
@@ -47,17 +52,6 @@ fn main() {
 
     let simulator = &env.0;
 
-    for i in 0..NUM_TURN {
-        println!(
-            "width: {:2}, height: {:2} -> best: {:6}, length: {:6}, ratio: {:.3}",
-            simulator.queries()[i].query.width(),
-            simulator.queries()[i].query.height(),
-            simulator.score_details()[i].best,
-            simulator.score_details()[i].length,
-            simulator.score_details()[i].ratio(),
-        );
-    }
-
-    println!("score: {}", simulator.raw_score());
-    println!("atcoder: {}", simulator.atcoder_score() * 100);
+    info!("raw_score  : {:.4}", simulator.raw_score());
+    info!("ratio_score: {:.6}", simulator.ratio_score());
 }
