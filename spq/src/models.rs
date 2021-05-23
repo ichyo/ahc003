@@ -112,3 +112,58 @@ impl Query {
         ((self.src.c as i8) - (self.dest.c as i8)).abs() as u8
     }
 }
+
+pub struct ArrayGridGraph<T> {
+    pub horizontal: [[T; GRID_LEN - 1]; GRID_LEN],
+    pub vertical: [[T; GRID_LEN]; GRID_LEN - 1],
+}
+
+impl<T: Copy> ArrayGridGraph<T> {
+    pub fn new(value: T) -> ArrayGridGraph<T> {
+        ArrayGridGraph {
+            horizontal: [[value; GRID_LEN - 1]; GRID_LEN],
+            vertical: [[value; GRID_LEN]; GRID_LEN - 1],
+        }
+    }
+    pub fn from_arrays(
+        horizontal: [[T; GRID_LEN - 1]; GRID_LEN],
+        vertical: [[T; GRID_LEN]; GRID_LEN - 1],
+    ) -> ArrayGridGraph<T> {
+        ArrayGridGraph {
+            horizontal,
+            vertical,
+        }
+    }
+}
+
+impl<T> ArrayGridGraph<T> {
+    pub fn get(&self, p: Pos, d: Dir) -> &T {
+        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
+        match d {
+            Dir::Up => &self.vertical[p.r as usize - 1][p.c as usize],
+            Dir::Down => &self.vertical[p.r as usize][p.c as usize],
+            Dir::Left => &self.horizontal[p.r as usize][p.c as usize - 1],
+            Dir::Right => &self.horizontal[p.r as usize][p.c as usize],
+        }
+    }
+
+    pub fn get_mut(&mut self, p: Pos, d: Dir) -> &mut T {
+        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
+        match d {
+            Dir::Up => &mut self.vertical[p.r as usize - 1][p.c as usize],
+            Dir::Down => &mut self.vertical[p.r as usize][p.c as usize],
+            Dir::Left => &mut self.horizontal[p.r as usize][p.c as usize - 1],
+            Dir::Right => &mut self.horizontal[p.r as usize][p.c as usize],
+        }
+    }
+}
+
+pub trait GridGraph<T> {
+    fn get(&self, p: Pos, d: Dir) -> &T;
+}
+
+impl<T> GridGraph<T> for ArrayGridGraph<T> {
+    fn get(&self, p: Pos, d: Dir) -> &T {
+        self.get(p, d)
+    }
+}

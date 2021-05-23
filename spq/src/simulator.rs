@@ -1,7 +1,6 @@
+use crate::algorithms::compute_shortest_cost;
 use crate::models::*;
 use rand::prelude::*;
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
 
 #[derive(Debug)]
 pub struct ScoreDetail {
@@ -17,7 +16,7 @@ impl ScoreDetail {
 
 pub struct Simulator {
     turn: usize,
-    graph: GridGraph,
+    graph: ArrayGridGraph<u32>,
     queries: Vec<QueryParam>,
     visited: Grid<usize>,
     score: f64,
@@ -57,7 +56,7 @@ impl Environment for Simulator {
     fn do_answer(&mut self, path: &[Dir]) -> f64 {
         let query = self.queries[self.turn].clone();
         let length = self.compute_path_length(&path).expect("invalid path");
-        let best = self.compute_shortest_path(&query.query);
+        let best = compute_shortest_cost(&self.graph, query.query.src, query.query.dest);
         let ratio = best as f64 / length as f64;
         assert!(
             length >= best,
@@ -153,10 +152,7 @@ impl Simulator {
         }
         Simulator {
             turn: 0,
-            graph: GridGraph {
-                h_cost: h,
-                v_cost: v,
-            },
+            graph: ArrayGridGraph::from_arrays(h, v),
             visited: Grid::new(usize::max_value()),
             queries: (0..NUM_TURN)
                 .map(|i| QueryParam {
@@ -179,52 +175,7 @@ pub struct QueryParam {
     pub res_factor: f64,
 }
 
-struct GridGraph {
-    h_cost: [[u32; GRID_LEN - 1]; GRID_LEN],
-    v_cost: [[u32; GRID_LEN]; GRID_LEN - 1],
-}
-
-impl GridGraph {
-    fn get_cost(&self, p: Pos, d: Dir) -> u32 {
-        assert!(p.move_to(d).is_some(), "{:?} moving {:?}", p, d);
-        match d {
-            Dir::Up => self.v_cost[p.r as usize - 1][p.c as usize],
-            Dir::Down => self.v_cost[p.r as usize][p.c as usize],
-            Dir::Left => self.h_cost[p.r as usize][p.c as usize - 1],
-            Dir::Right => self.h_cost[p.r as usize][p.c as usize],
-        }
-    }
-}
-
 impl Simulator {
-    fn compute_shortest_path(&self, query: &Query) -> u32 {
-        let src = query.src;
-        let dest = query.dest;
-        let mut dist: Grid<u32> = Grid::new(u32::max_value());
-        let mut prev: Grid<Dir> = Grid::new(Dir::Up);
-        let mut queue = BinaryHeap::new();
-        dist[src] = 0;
-        queue.push(Reverse((0, src)));
-        while let Some(Reverse((d, p))) = queue.pop() {
-            if p == dest {
-                break;
-            }
-            if dist[p] != d {
-                continue;
-            }
-            for dir in Dir::iter() {
-                if let Some(q) = p.move_to(dir) {
-                    if dist[q] > d + self.graph.get_cost(p, dir) {
-                        dist[q] = d + self.graph.get_cost(p, dir);
-                        prev[q] = dir;
-                        queue.push(Reverse((dist[q], q)));
-                    }
-                }
-            }
-        }
-        dist[dest]
-    }
-
     fn compute_path_length(&mut self, path: &[Dir]) -> Result<u32, String> {
         let src = self.queries[self.turn].query.src;
         let dest = self.queries[self.turn].query.dest;
@@ -245,7 +196,7 @@ impl Simulator {
                 Some(np) => np,
                 None => return Err(format!("going outside the map (query {})", self.turn + 1)),
             };
-            sum += self.graph.get_cost(p, d);
+            sum += self.graph.get(p, d);
 
             p = np;
         }
