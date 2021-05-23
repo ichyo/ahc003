@@ -86,21 +86,24 @@ impl Environment for Simulator {
         self.score_details.push(ScoreDetail { length, best });
         self.score = self.score * 0.998 + ratio;
         self.best_score = self.best_score * 0.998 + 1.0;
-        self.turn += 1;
 
-        debug!(
-            "Got a path: best={:6} output={:6} ratio={:.2}. Ratio score is {:.4}",
+        trace!(
+            "[turn{:3}] Got a path: best={:6} output={:6} ratio={:.2}. Ratio score is {:.4}",
+            self.turn,
             best,
             length,
             ratio,
             self.ratio_score(),
         );
-        debug!(
-            "Returning a response: {:6} * {:.2} = {:.2}",
+        trace!(
+            "[turn{:3}] Returning a response: {:6} * {:.2} = {:.2}",
+            self.turn,
             length,
             query.res_factor,
             length as f64 * query.res_factor
         );
+
+        self.turn += 1;
 
         length as f64 * query.res_factor
     }
