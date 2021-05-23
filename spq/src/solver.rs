@@ -257,24 +257,55 @@ impl GraphEstimator2 {
 }
 
 struct GraphEstimator {
-    estimation: GridLines<u32>,
+    costs: GridLines<u32>,
     records: Vec<Record>,
+    // Cache for estimation
+    visit_counts: Vec<GridLines<u32>>,
+    total_costs: Vec<u32>,
+    visited_turns: FxHashMap<LineIndex, FxHashSet<u16>>,
+    loss: i64,
 }
 
 impl Index<EdgeIndex> for GraphEstimator {
     type Output = u32;
 
     fn index(&self, index: EdgeIndex) -> &Self::Output {
-        &self.estimation[index.line]
+        &self.costs[index.line]
     }
 }
 
 impl GraphEstimator {
     fn new() -> GraphEstimator {
         GraphEstimator {
-            estimation: GridLines::new(5000),
+            costs: GridLines::new(5000),
             records: Vec::new(),
+            visit_counts: Vec::new(),
+            total_costs: Vec::new(),
+            visited_turns: FxHashMap::default(),
+            loss: 0,
         }
+    }
+
+    fn validate_cache(&self) {
+        assert!(self.records.len() == self.visit_counts.len());
+        let turn = self.records.len();
+        let mut actual_loss = 0i64;
+        for i in 0..turn {
+            let mut cost_sum = 0;
+            for &edge in &self.records[i].visited {
+                let cost = self.index(edge);
+                cost_sum += cost;
+            }
+            assert!(
+                self.total_costs[i] == cost_sum,
+                "i={} total_costs={} cost_sum={}",
+                i,
+                self.total_costs[i],
+                cost_sum
+            );
+            actual_loss += (cost_sum as i64 - self.records[i].response as i64).abs();
+        }
+        assert!(actual_loss == self.loss);
     }
 
     fn insert_new_record(&mut self, query: &Query, path: &[Dir], response: u32) {
@@ -283,61 +314,88 @@ impl GraphEstimator {
     }
 
     fn update_estimation(&mut self) {
-        let n = self.records.len();
-        if n == 0 {
-            return;
-        }
-        let mut count = vec![GridLines::new(0); n]; // row
-        let mut length = vec![0i64; n];
-        for i in 0..n {
-            let mut p = self.records[i].query.src;
-            for &d in &self.records[i].path {
-                let edge = EdgeIndex::from_move(p, d);
-                length[i] += self.estimation[edge.line] as i64;
-                count[i][edge.line] += 1;
-                p = p.move_to(d).unwrap();
-            }
-            assert!(p == self.records[i].query.dest);
-        }
-        let mut diff = 0i64;
-        for i in 0..n {
-            diff += (length[i] as i64 - self.records[i].response as i64).abs();
+        let start = Instant::now();
+        let time_limit = Duration::from_micros(1500); // TODO: more dynamic
+
+        assert!(
+            self.visit_counts.len() + 1 == self.records.len(),
+            "{} + 1 != {}",
+            self.visit_counts.len(),
+            self.records.len()
+        );
+        let this_turn = self.records.len() - 1;
+        let mut visit_count = GridLines::new(0);
+        let mut total_cost = 0u32;
+
+        for &edge in &self.records[this_turn].visited {
+            let cost = self.index(edge);
+            total_cost += cost;
+
+            self.visited_turns
+                .entry(edge.line)
+                .or_default()
+                .insert(this_turn as u16);
+
+            visit_count[edge.line] += 1;
         }
 
-        let mut updated = true;
+        self.loss += (total_cost as i64 - self.records[this_turn].response as i64).abs();
+        self.visit_counts.push(visit_count);
+        self.total_costs.push(total_cost);
+
+        //self.validate_cache(); // TODO: remove when submit
+
+        let mut rng = thread_rng();
         let mut loops = 0;
-        trace!("Start updating estimation from diff={}", diff);
-        while updated {
+        let mut updates = 0;
+        let start_loss = self.loss;
+        while start.elapsed() <= time_limit {
             loops += 1;
-            updated = false;
-            for sign in &[-100i64, 100i64] {
-                for line in LineIndex::iter() {
-                    let est = self.estimation[line];
-                    let new_est = est as i64 + sign;
-                    if new_est < 0 || new_est > 9000 {
-                        continue;
-                    }
-
-                    let mut new_diff = 0;
-                    for i in 0..n {
-                        let count = count[i][line];
-                        new_diff += (length[i] as i64 + sign * count
-                            - self.records[i].response as i64)
-                            .abs();
-                    }
-                    if new_diff < diff {
-                        for i in 0..n {
-                            let count = count[i][line];
-                            length[i] += sign * count;
-                        }
-                        self.estimation[line] = new_est as u32;
-                        diff = new_diff;
-                        updated = true;
-                    }
+            let line = LineIndex::choose(&mut rng);
+            let step = 100;
+            let sign: i64 = if rng.gen::<bool>() { 1 } else { -1 };
+            let cur_cost = self.costs[line];
+            let next_cost = cur_cost as i64 + sign * step;
+            if next_cost < 0 || next_cost > 9000 {
+                continue;
+            }
+            let mut loss_diff = 0i64;
+            if let Some(turns) = self.visited_turns.get(&line) {
+                for &turn in turns {
+                    let turn = turn as usize;
+                    let visit_count = &self.visit_counts[turn];
+                    let response = self.records[turn].response as i64;
+                    let cur_total_cost = self.total_costs[turn] as i64;
+                    let new_total_cost =
+                        self.total_costs[turn] as i64 + sign * step * visit_count[line] as i64;
+                    loss_diff -= (cur_total_cost - response).abs();
+                    loss_diff += (new_total_cost - response).abs();
                 }
             }
+            if loss_diff < 0 {
+                self.costs[line] = next_cost as u32;
+                self.loss += loss_diff;
+                if let Some(turns) = self.visited_turns.get(&line) {
+                    for &turn in turns {
+                        let visit_count = &self.visit_counts[turn as usize];
+                        let new_total_cost = self.total_costs[turn as usize] as i64
+                            + sign * step * visit_count[line] as i64;
+                        self.total_costs[turn as usize] = new_total_cost as u32;
+                    }
+                }
+                updates += 1;
+            }
         }
-        trace!("Finish updating estimation. diff={} loops={}", diff, loops);
+
+        // self.validate_cache(); // TODO: remove when submit
+
+        trace!(
+            "Finish updating estimation. loss={:6}->{:6} loops={:6} updates={:6}",
+            start_loss,
+            self.loss,
+            loops,
+            updates
+        );
     }
 }
 
