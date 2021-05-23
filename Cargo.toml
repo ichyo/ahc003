@@ -1,2 +1,4 @@
 [workspace]
-members = ["spq", "tester", "submission"]
+members = ["spq", "tester"]
+
+exclude = ["submission"]
