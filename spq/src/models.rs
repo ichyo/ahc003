@@ -20,6 +20,14 @@ impl Dir {
     pub fn iter() -> impl Iterator<Item = Dir> {
         [Dir::Up, Dir::Left, Dir::Down, Dir::Right].iter().cloned()
     }
+    pub fn rev(&self) -> Dir {
+        match self {
+            Dir::Up => Dir::Down,
+            Dir::Down => Dir::Up,
+            Dir::Left => Dir::Right,
+            Dir::Right => Dir::Left,
+        }
+    }
     pub fn to_char(&self) -> char {
         match self {
             Dir::Up => 'U',
