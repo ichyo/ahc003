@@ -52,7 +52,7 @@ impl Estimation {
 struct Record {
     query: Query,
     path: Vec<Dir>,
-    response: f64,
+    response: u32,
 }
 
 struct GraphEstimator {
@@ -91,7 +91,7 @@ impl GraphEstimator {
         }
     }
 
-    fn insert_new_record(&mut self, query: &Query, path: &[Dir], response: f64) {
+    fn insert_new_record(&mut self, query: &Query, path: &[Dir], response: u32) {
         self.records.push(Record {
             query: query.clone(),
             path: path.iter().cloned().collect(),
@@ -125,7 +125,7 @@ impl GraphEstimator {
         }
         let mut diff = 0i64;
         for i in 0..n {
-            diff += (length[i] as i64 - self.records[i].response.round() as i64).abs();
+            diff += (length[i] as i64 - self.records[i].response as i64).abs();
         }
 
         let mut updated = true;
@@ -134,7 +134,7 @@ impl GraphEstimator {
         while updated {
             loops += 1;
             updated = false;
-            for sign in &[-1i64, 1i64] {
+            for sign in &[-100i64, 100i64] {
                 for axis in &[Axis::Vertical, Axis::Horizontal] {
                     for x in 0..GRID_LEN {
                         let est = match *axis {
@@ -153,7 +153,7 @@ impl GraphEstimator {
                                 Axis::Vertical => v_count[i][x as usize],
                             };
                             new_diff += (length[i] as i64 + sign * count
-                                - self.records[i].response.round() as i64)
+                                - self.records[i].response as i64)
                                 .abs();
                         }
                         if new_diff < diff {
@@ -196,10 +196,10 @@ pub fn run_solver<E: Environment>(env: &mut E) {
         );
         let response = env.do_answer(&path);
         trace!(
-            "Got a response. length={:.2} esimated={:6} ratio={:.2}",
+            "Got a response. length={:6} esimated={:6} ratio={:.2}",
             response,
             estimated_length,
-            response / estimated_length as f64
+            response as f64 / estimated_length as f64
         );
         estimator.insert_new_record(&query, &path, response);
         estimator.update_estimation();

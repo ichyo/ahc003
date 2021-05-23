@@ -1,4 +1,4 @@
 #!/bin/sh
 
 cd ./submission
-cargo equip --exclude-atcoder-crates --rustfmt --remove docs --remove comments
+cargo equip --exclude-atcoder-crates --rustfmt --remove docs --remove comments | grep -ve '^//!'

@@ -4,6 +4,7 @@ use log::info;
 use spq::simulator::Simulator;
 use spq::solver::run_solver;
 use std::sync::mpsc;
+use std::time::Instant;
 use threadpool::ThreadPool;
 
 /// Evaluate solver by multiple test cases
@@ -53,16 +54,23 @@ fn main() -> Result<(), mpsc::RecvError> {
         let tx = tx.clone();
         pool.execute(move || {
             let mut simulator = Simulator::from_seed(seed);
+            let start = Instant::now();
             run_solver(&mut simulator);
-            tx.send((seed, simulator)).expect("failed to send");
+            tx.send((seed, simulator, start.elapsed()))
+                .expect("failed to send");
         });
     }
 
     let mut ratio_scores = Vec::new();
 
     for _ in 0..args.num {
-        let (seed, simulator) = rx.recv()?;
-        info!("seed={:4} score={:.4}", seed, simulator.ratio_score());
+        let (seed, simulator, elapsed) = rx.recv()?;
+        info!(
+            "seed={:4} score={:.4} elapsed={}ms",
+            seed,
+            simulator.ratio_score(),
+            elapsed.as_millis()
+        );
         ratio_scores.push(simulator.ratio_score());
     }
 

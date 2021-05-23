@@ -5,7 +5,7 @@ pub const GRID_LEN: usize = 30;
 
 pub trait Environment {
     fn next_query(&self) -> Option<Query>;
-    fn do_answer(&mut self, path: &[Dir]) -> f64;
+    fn do_answer(&mut self, path: &[Dir]) -> u32;
 }
 
 #[derive(Debug, Clone, Copy)]

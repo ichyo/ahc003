@@ -46,7 +46,7 @@ impl<R: BufRead, W: Write> Environment for RemoteEnvironment<R, W> {
         self.next_query.clone()
     }
 
-    fn do_answer(&mut self, path: &[Dir]) -> f64 {
+    fn do_answer(&mut self, path: &[Dir]) -> u32 {
         writeln!(
             self.writer,
             "{}",
@@ -60,6 +60,7 @@ impl<R: BufRead, W: Write> Environment for RemoteEnvironment<R, W> {
             .read_line(&mut score)
             .expect("read score failed");
         let score = score
+            .trim()
             .parse::<f64>()
             .map_err(|e| format!("invalid score {}: {}", score, e))
             .unwrap();
@@ -72,6 +73,6 @@ impl<R: BufRead, W: Write> Environment for RemoteEnvironment<R, W> {
             self.next_query = None;
         }
 
-        score
+        score.round() as u32
     }
 }

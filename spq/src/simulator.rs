@@ -72,7 +72,7 @@ impl Environment for Simulator {
         }
     }
 
-    fn do_answer(&mut self, path: &[Dir]) -> f64 {
+    fn do_answer(&mut self, path: &[Dir]) -> u32 {
         let query = self.queries[self.turn].clone();
         let length = self.compute_path_length(&path).expect("invalid path");
         let best = compute_shortest_cost(&self.graph, query.query.src, query.query.dest);
@@ -105,7 +105,7 @@ impl Environment for Simulator {
 
         self.turn += 1;
 
-        length as f64 * query.res_factor
+        (length as f64 * query.res_factor).round() as u32
     }
 }
 
