@@ -66,8 +66,10 @@ fn main() -> Result<(), mpsc::RecvError> {
     for _ in 0..args.num {
         let (seed, simulator, elapsed) = rx.recv()?;
         info!(
-            "seed={:4} score={:.4} elapsed={}ms",
+            "seed={:4} type={} d={:4} score={:.4} elapsed={}ms",
             seed,
+            simulator.graph_params().graph_type(),
+            simulator.graph_params().d(),
             simulator.ratio_score(),
             elapsed.as_millis()
         );

@@ -27,7 +27,7 @@ impl Environment for TryoutEnvironment {
     fn next_query(&self) -> Option<Query> {
         self.0.next_query()
     }
-    fn do_answer(&mut self, path: &[Dir]) -> f64 {
+    fn do_answer(&mut self, path: &[Dir]) -> u32 {
         if let Some(f) = &mut self.1 {
             writeln!(
                 f,

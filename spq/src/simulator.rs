@@ -15,19 +15,40 @@ impl ScoreDetail {
 }
 
 #[derive(Debug)]
+pub struct SingleGraphParams {
+    d: u16,
+    h: Vec<u16>,
+    v: Vec<u16>,
+}
+
+#[derive(Debug)]
+pub struct DoubleGraphParams {
+    d: u16,
+    h: Vec<(u16, u16)>,
+    cm: Vec<u8>,
+    v: Vec<(u16, u16)>,
+    rm: Vec<u8>,
+}
+
+#[derive(Debug)]
 pub enum GraphParams {
-    Single {
-        d: u16,
-        h: Vec<u16>,
-        v: Vec<u16>,
-    },
-    Double {
-        d: u16,
-        h: Vec<(u16, u16)>,
-        cm: Vec<u8>,
-        v: Vec<(u16, u16)>,
-        rm: Vec<u8>,
-    },
+    Single(SingleGraphParams),
+    Double(DoubleGraphParams),
+}
+
+impl GraphParams {
+    pub fn graph_type(&self) -> &'static str {
+        match self {
+            GraphParams::Single(_) => "single",
+            GraphParams::Double(_) => "double",
+        }
+    }
+    pub fn d(&self) -> u16 {
+        match self {
+            GraphParams::Single(p) => p.d,
+            GraphParams::Double(p) => p.d,
+        }
+    }
 }
 
 pub struct Simulator {
@@ -42,6 +63,9 @@ pub struct Simulator {
 }
 
 impl Simulator {
+    pub fn graph_params(&self) -> &GraphParams {
+        &self.graph_params
+    }
     pub fn queries(&self) -> &Vec<QueryParam> {
         &self.queries
     }
@@ -163,33 +187,33 @@ impl Simulator {
         }
 
         let graph_params = if m == 1 {
-            GraphParams::Single {
+            GraphParams::Single(SingleGraphParams {
                 d: d as u16,
                 h: hb.iter().map(|v| v[0] as u16).collect(),
                 v: vb.iter().map(|v| v[0] as u16).collect(),
-            }
+            })
         } else {
-            GraphParams::Double {
+            GraphParams::Double(DoubleGraphParams {
                 d: d as u16,
                 h: hb.iter().map(|v| (v[0] as u16, v[1] as u16)).collect(),
                 rm: x.iter().map(|v| v[1] as u8).collect(),
                 v: vb.iter().map(|v| (v[0] as u16, v[1] as u16)).collect(),
                 cm: y.iter().map(|v| v[1] as u8).collect(),
-            }
+            })
         };
 
         match &graph_params {
-            GraphParams::Single { d, h, v } => {
-                debug!("Generate single graph d={:4}", d);
-                debug!("h={:?}", h);
-                debug!("v={:?}", v);
+            GraphParams::Single(p) => {
+                debug!("Generate single graph d={:4}", p.d);
+                debug!("h={:?}", p.h);
+                debug!("v={:?}", p.v);
             }
-            GraphParams::Double { d, h, rm, v, cm } => {
-                debug!("Generate double graph d={:4}", d);
-                debug!("h={:?}", h);
-                debug!("v={:?}", v);
-                debug!("rm={:?}", rm);
-                debug!("cm={:?}", cm);
+            GraphParams::Double(p) => {
+                debug!("Generate double graph d={:4}", p.d);
+                debug!("h={:?}", p.h);
+                debug!("v={:?}", p.v);
+                debug!("rm={:?}", p.rm);
+                debug!("cm={:?}", p.cm);
             }
         };
 
