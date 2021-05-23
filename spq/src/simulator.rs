@@ -14,8 +14,25 @@ impl ScoreDetail {
     }
 }
 
+#[derive(Debug)]
+pub enum GraphParams {
+    Single {
+        d: u16,
+        h: Vec<u16>,
+        v: Vec<u16>,
+    },
+    Double {
+        d: u16,
+        h: Vec<(u16, u16)>,
+        cm: Vec<u8>,
+        v: Vec<(u16, u16)>,
+        rm: Vec<u8>,
+    },
+}
+
 pub struct Simulator {
     turn: usize,
+    graph_params: GraphParams,
     graph: ArrayGridGraph<u32>,
     queries: Vec<QueryParam>,
     visited: Grid<usize>,
@@ -141,6 +158,38 @@ impl Simulator {
                 }
             }
         }
+
+        let graph_params = if m == 1 {
+            GraphParams::Single {
+                d: d as u16,
+                h: hb.iter().map(|v| v[0] as u16).collect(),
+                v: vb.iter().map(|v| v[0] as u16).collect(),
+            }
+        } else {
+            GraphParams::Double {
+                d: d as u16,
+                h: hb.iter().map(|v| (v[0] as u16, v[1] as u16)).collect(),
+                rm: x.iter().map(|v| v[1] as u8).collect(),
+                v: vb.iter().map(|v| (v[0] as u16, v[1] as u16)).collect(),
+                cm: y.iter().map(|v| v[1] as u8).collect(),
+            }
+        };
+
+        match &graph_params {
+            GraphParams::Single { d, h, v } => {
+                debug!("Generate single graph d={:4}", d);
+                debug!("h={:?}", h);
+                debug!("v={:?}", v);
+            }
+            GraphParams::Double { d, h, rm, v, cm } => {
+                debug!("Generate double graph d={:4}", d);
+                debug!("h={:?}", h);
+                debug!("v={:?}", v);
+                debug!("rm={:?}", rm);
+                debug!("cm={:?}", cm);
+            }
+        };
+
         let mut s = vec![];
         let mut t = vec![];
         let mut e = vec![];
@@ -168,8 +217,10 @@ impl Simulator {
             t.push(tk);
             e.push(rng.gen_range(0.9, 1.1));
         }
+
         Simulator {
             turn: 0,
+            graph_params,
             graph: ArrayGridGraph::from_arrays(h, v),
             visited: Grid::new(usize::max_value()),
             queries: (0..NUM_TURN)
