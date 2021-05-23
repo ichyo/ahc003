@@ -1,3 +1,4 @@
+use rand::prelude::*;
 use std::cmp::Ordering;
 use std::ops::{Index, IndexMut};
 
@@ -106,7 +107,7 @@ impl Pos {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Axis {
     Horizontal, // left-right. row
     Vertical,   // up-down. col
@@ -125,7 +126,7 @@ impl Axis {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LineIndex {
     pub axis: Axis,
     pub index: u8, // index of lines. row if horizontal.
@@ -136,12 +137,19 @@ impl LineIndex {
         Axis::iter()
             .flat_map(move |axis| (0..GRID_LEN as u8).map(move |index| LineIndex { axis, index }))
     }
-}
 
-#[derive(Debug, Clone, Copy)]
-pub struct EdgeIndex {
-    pub line: LineIndex,
-    pub x: u8, // index within a single line. col if horizontal.
+    pub fn choose<R: Rng>(rng: &mut R) -> LineIndex {
+        let is_h = rng.gen::<bool>();
+        let index = rng.gen_range(0, GRID_LEN as u8);
+        LineIndex {
+            axis: if is_h {
+                Axis::Horizontal
+            } else {
+                Axis::Vertical
+            },
+            index,
+        }
+    }
 }
 
 impl LineIndex {
@@ -162,6 +170,12 @@ impl LineIndex {
             },
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EdgeIndex {
+    pub line: LineIndex,
+    pub x: u8, // index within a single line. col if horizontal.
 }
 
 impl EdgeIndex {
@@ -222,6 +236,7 @@ impl<T: Copy> IndexMut<LineIndex> for GridLines<T> {
     }
 }
 
+#[derive(Clone)]
 pub struct GridGraph<T: Copy>(GridLines<[T; GRID_LEN - 1]>);
 
 impl<T: Copy> GridGraph<T> {
