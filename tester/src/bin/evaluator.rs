@@ -1,4 +1,6 @@
 use clap::Clap;
+use env_logger::Env;
+use log::info;
 use spq::simulator::Simulator;
 use spq::solver::run_solver;
 use std::sync::mpsc;
@@ -40,6 +42,8 @@ fn std_deviation(data: &[f64]) -> f64 {
 }
 
 fn main() -> Result<(), mpsc::RecvError> {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
     let args = Arguments::parse();
     let pool = ThreadPool::new(args.concurrency);
 
@@ -58,12 +62,12 @@ fn main() -> Result<(), mpsc::RecvError> {
 
     for _ in 0..args.num {
         let (seed, simulator) = rx.recv()?;
-        eprintln!("[{:4}] {:.4}", seed, simulator.ratio_score());
+        info!("seed={:4} score={:.4}", seed, simulator.ratio_score());
         ratio_scores.push(simulator.ratio_score());
     }
 
-    println!("mean: {:.5}", mean(&ratio_scores));
-    println!("sd:   {:.5}", std_deviation(&ratio_scores));
+    info!("mean: {:.6}", mean(&ratio_scores));
+    info!("sd:   {:.6}", std_deviation(&ratio_scores));
 
     Ok(())
 }
