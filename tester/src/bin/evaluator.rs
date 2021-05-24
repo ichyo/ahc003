@@ -4,6 +4,7 @@ use log::info;
 use spq::simulator::Simulator;
 use spq::solver::run_solver;
 use std::sync::mpsc;
+use std::time::Duration;
 use std::time::Instant;
 use threadpool::ThreadPool;
 
@@ -18,6 +19,10 @@ struct Arguments {
     /// concurrency level
     #[clap(short, long, default_value = "5")]
     concurrency: usize,
+
+    /// time limit in msec
+    #[clap(short, long, default_value = "2000")]
+    time_limit: u64,
 }
 
 fn mean(data: &[f64]) -> f64 {
@@ -52,10 +57,11 @@ fn main() -> Result<(), mpsc::RecvError> {
 
     for seed in 0..args.num {
         let tx = tx.clone();
+        let time_limit = args.time_limit;
         pool.execute(move || {
             let mut simulator = Simulator::from_seed(seed);
             let start = Instant::now();
-            run_solver(&mut simulator);
+            run_solver(&mut simulator, Duration::from_millis(time_limit));
             tx.send((seed, simulator, start.elapsed()))
                 .expect("failed to send");
         });
@@ -83,6 +89,7 @@ fn main() -> Result<(), mpsc::RecvError> {
 
     info!("n:        {:}", args.num);
     info!("c:        {:}", args.concurrency);
+    info!("t:        {:}ms", args.time_limit);
     info!("max_time: {:}ms", max_elapsed);
     info!("mean:     {:.6}", mean(&ratio_scores));
     info!("sd:       {:.6}", std_deviation(&ratio_scores));

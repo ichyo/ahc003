@@ -1,6 +1,7 @@
 use log::info;
 use std::fs::File;
 use std::io::Write;
+use std::time::Duration;
 
 use clap::Clap;
 use spq::models::*;
@@ -19,6 +20,9 @@ struct Arguments {
     /// Output file for visualizer
     #[clap(short, long)]
     output: Option<String>,
+    /// time limit in msec
+    #[clap(short, long, default_value = "2000")]
+    time_limit: u64,
 }
 
 struct TryoutEnvironment(Simulator, Option<File>);
@@ -48,7 +52,7 @@ fn main() {
     let file = args.output.map(|s| File::create(s).unwrap());
 
     let mut env = TryoutEnvironment(Simulator::from_seed(args.seed), file);
-    run_solver(&mut env);
+    run_solver(&mut env, Duration::from_millis(args.time_limit));
 
     let simulator = &env.0;
 

@@ -41,6 +41,7 @@ struct GraphEstimator {
     total_costs: Vec<u32>,
     visited_turns: FxHashMap<LineIndex, FxHashSet<u16>>,
     loss: i64,
+    time_limit: Duration,
 }
 
 impl Index<EdgeIndex> for GraphEstimator {
@@ -57,7 +58,7 @@ impl Index<EdgeIndex> for GraphEstimator {
 }
 
 impl GraphEstimator {
-    fn new() -> GraphEstimator {
+    fn new(time_limit: Duration) -> GraphEstimator {
         GraphEstimator {
             costs: GridLines::new([1000, 1000]),
             mid_x: GridLines::new(GRID_LEN as u8 / 2),
@@ -66,6 +67,7 @@ impl GraphEstimator {
             total_costs: Vec::new(),
             visited_turns: FxHashMap::default(),
             loss: 0,
+            time_limit,
         }
     }
 
@@ -105,7 +107,7 @@ impl GraphEstimator {
         let end_temp = 100.0;
 
         let start = Instant::now();
-        let time_limit = Duration::from_micros(1800); // TODO: more dynamic
+        let time_limit = self.time_limit * 90 / 100 / 1000;
 
         assert!(
             self.visit_counts.len() + 1 == self.records.len(),
@@ -292,8 +294,8 @@ impl GraphEstimator {
     }
 }
 
-pub fn run_solver<E: Environment>(env: &mut E) {
-    let mut estimator = GraphEstimator::new();
+pub fn run_solver<E: Environment>(env: &mut E, time_limit: Duration) {
+    let mut estimator = GraphEstimator::new(time_limit);
     while let Some(query) = env.next_query() {
         trace!(
             "Start processing a query ({:2}, {:2}) -> ({:2}, {:2}) width={:2} height={:2}",

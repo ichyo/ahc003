@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use spq::remote::RemoteEnvironment;
 use spq::solver::run_solver;
 
@@ -7,5 +9,5 @@ fn main() {
     let stdin = stdin.lock();
     let stdout = stdout.lock();
     let mut env = RemoteEnvironment::new(stdin, stdout);
-    run_solver(&mut env);
+    run_solver(&mut env, Duration::from_secs(2));
 }
