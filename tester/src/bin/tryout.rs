@@ -16,7 +16,7 @@ struct Arguments {
     /// Seed to generate test case
     #[clap(short, long)]
     seed: u64,
-    /// Seed to generate test case
+    /// Output file for visualizer
     #[clap(short, long)]
     output: Option<String>,
 }
