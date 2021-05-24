@@ -318,4 +318,6 @@ pub fn run_solver<E: Environment>(env: &mut E) {
         );
         estimator.insert_new_record(&query, &path, response);
     }
+    debug!("costs={:?}", estimator.costs);
+    debug!("mid_x={:?}", estimator.mid_x);
 }
