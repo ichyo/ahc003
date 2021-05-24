@@ -63,6 +63,8 @@ fn main() -> Result<(), mpsc::RecvError> {
 
     let mut ratio_scores = Vec::new();
 
+    let mut max_elapsed = 0;
+
     for _ in 0..args.num {
         let (seed, simulator, elapsed) = rx.recv()?;
         info!(
@@ -74,10 +76,16 @@ fn main() -> Result<(), mpsc::RecvError> {
             elapsed.as_millis()
         );
         ratio_scores.push(simulator.ratio_score());
+        if max_elapsed < elapsed.as_millis() {
+            max_elapsed = elapsed.as_millis();
+        }
     }
 
-    info!("mean: {:.6}", mean(&ratio_scores));
-    info!("sd:   {:.6}", std_deviation(&ratio_scores));
+    info!("n:        {:}", args.num);
+    info!("c:        {:}", args.concurrency);
+    info!("max_time: {:}ms", max_elapsed);
+    info!("mean:     {:.6}", mean(&ratio_scores));
+    info!("sd:       {:.6}", std_deviation(&ratio_scores));
 
     Ok(())
 }

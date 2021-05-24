@@ -213,7 +213,7 @@ impl Query {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct GridLines<T: Copy>([[T; GRID_LEN]; 2]);
 
 impl<T: Copy> GridLines<T> {

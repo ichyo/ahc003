@@ -108,6 +108,7 @@ dependencies = [
  "num-traits",
  "rand",
  "rand_chacha",
+ "rand_core",
  "rustc-hash",
 ]
 

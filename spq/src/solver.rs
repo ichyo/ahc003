@@ -86,7 +86,9 @@ impl GraphEstimator {
                 self.total_costs[i],
                 cost_sum
             );
-            actual_loss += (cost_sum as i64 - self.records[i].response as i64).pow(2);
+            actual_loss += (cost_sum as i64 - self.records[i].response as i64)
+                .abs()
+                .pow(2);
         }
         assert!(actual_loss == self.loss);
     }
@@ -97,8 +99,13 @@ impl GraphEstimator {
     }
 
     fn update_estimation(&mut self) {
+        let step = 100;
+        let norm_p = 2;
+        let start_temp = 100000.0;
+        let end_temp = 100.0;
+
         let start = Instant::now();
-        let time_limit = Duration::from_micros(1500); // TODO: more dynamic
+        let time_limit = Duration::from_micros(1800); // TODO: more dynamic
 
         assert!(
             self.visit_counts.len() + 1 == self.records.len(),
@@ -126,23 +133,34 @@ impl GraphEstimator {
             }
         }
 
-        self.loss += (total_cost as i64 - self.records[this_turn].response as i64).pow(2);
+        self.loss += (total_cost as i64 - self.records[this_turn].response as i64)
+            .abs()
+            .pow(norm_p);
         self.visit_counts.push(visit_count);
         self.total_costs.push(total_cost);
 
-        //self.validate_cache(); // TODO: remove when submit
-
-        let mut rng = thread_rng();
         let mut loops = 0;
-        let mut updates = 0;
+        let mut updates_type1 = 0;
+        let mut updates_type2 = 0;
         let start_loss = self.loss;
-        while start.elapsed() <= time_limit {
+
+        loop {
+            let elapsed = start.elapsed();
+
+            let ratio = elapsed.as_secs_f64() / time_limit.as_secs_f64();
+
+            if ratio >= 1.0 {
+                break;
+            }
+
+            let temp = start_temp + (end_temp - start_temp) * ratio;
+
             loops += 1;
+            let mut rng = thread_rng();
             let update_type = rng.gen_range(0, 2);
             if update_type == 0 {
                 let line = LineIndex::choose(&mut rng);
                 let part = rng.gen_range(0, 2);
-                let step = 100;
                 let sign: i64 = if rng.gen::<bool>() { 1 } else { -1 };
                 let cur_cost = self.costs[line][part];
                 let next_cost = cur_cost as i64 + sign * step;
@@ -158,11 +176,12 @@ impl GraphEstimator {
                         let cur_total_cost = self.total_costs[turn] as i64;
                         let new_total_cost = self.total_costs[turn] as i64
                             + sign * step * visit_count[line][part] as i64;
-                        loss_diff -= (cur_total_cost - response).pow(2);
-                        loss_diff += (new_total_cost - response).pow(2);
+                        loss_diff -= (cur_total_cost - response).abs().pow(norm_p);
+                        loss_diff += (new_total_cost - response).abs().pow(norm_p);
                     }
                 }
-                if loss_diff < 0 {
+                let prob = (-loss_diff as f64 / temp).exp();
+                if rng.gen::<f64>() < prob {
                     self.costs[line][part] = next_cost as u32;
                     self.loss += loss_diff;
                     if let Some(turns) = self.visited_turns.get(&line) {
@@ -173,7 +192,7 @@ impl GraphEstimator {
                             self.total_costs[turn as usize] = new_total_cost as u32;
                         }
                     }
-                    updates += 1;
+                    updates_type1 += 1;
                 }
             } else {
                 let line = LineIndex::choose(&mut rng);
@@ -207,11 +226,12 @@ impl GraphEstimator {
                         let cost_diff =
                             self.costs[line][new_part] as i64 - self.costs[line][old_part] as i64;
 
-                        loss_diff -= (cur_total_cost - response).pow(2);
-                        loss_diff += (cur_total_cost + cost_diff - response).pow(2);
+                        loss_diff -= (cur_total_cost - response).abs().pow(norm_p);
+                        loss_diff += (cur_total_cost + cost_diff - response).abs().pow(norm_p);
                     }
                 }
-                if loss_diff < 0 {
+                let prob = (-loss_diff as f64 / temp).exp();
+                if rng.gen::<f64>() < prob {
                     if let Some(turns) = self.visited_turns.get(&line) {
                         for &turn in turns {
                             let turn = turn as usize;
@@ -239,20 +259,21 @@ impl GraphEstimator {
                     }
                     self.mid_x[line] = next_mid_x;
                     self.loss += loss_diff;
-                    updates += 1;
+                    updates_type2 += 1;
                 }
             }
         }
 
-        // self.validate_cache(); // TODO: remove when submit
-
         trace!(
-            "Finish updating estimation. loss={:6}->{:6} loops={:6} updates={:6}",
+            "Finish updating estimation. loss={:6}->{:6}({:6}) loops={:4} updates=({:3}, {:3})",
             start_loss,
             self.loss,
+            self.loss - start_loss,
             loops,
-            updates
+            updates_type1,
+            updates_type2
         );
+        trace!("costs={:?} mid_x={:?}", self.costs, self.mid_x);
     }
 }
 
