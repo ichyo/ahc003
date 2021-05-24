@@ -59,7 +59,7 @@ impl Index<EdgeIndex> for GraphEstimator {
 impl GraphEstimator {
     fn new() -> GraphEstimator {
         GraphEstimator {
-            costs: GridLines::new([5000, 5000]),
+            costs: GridLines::new([1000, 1000]),
             mid_x: GridLines::new(GRID_LEN as u8 / 2),
             records: Vec::new(),
             visit_counts: Vec::new(),
@@ -167,19 +167,34 @@ impl GraphEstimator {
                 if next_cost < 0 || next_cost > 9000 {
                     continue;
                 }
+
                 let mut loss_diff = 0i64;
+                let mut loss_diff_updated = false;
+
                 if let Some(turns) = self.visited_turns.get(&line) {
                     for &turn in turns {
                         let turn = turn as usize;
-                        let visit_count = &self.visit_counts[turn];
+                        let visit_counts = &self.visit_counts[turn];
+                        let visit_count = visit_counts[line][part];
+
+                        if visit_count == 0 {
+                            continue;
+                        }
+
                         let response = self.records[turn].response as i64;
                         let cur_total_cost = self.total_costs[turn] as i64;
-                        let new_total_cost = self.total_costs[turn] as i64
-                            + sign * step * visit_count[line][part] as i64;
+                        let new_total_cost =
+                            self.total_costs[turn] as i64 + sign * step * visit_count as i64;
                         loss_diff -= (cur_total_cost - response).abs().pow(norm_p);
                         loss_diff += (new_total_cost - response).abs().pow(norm_p);
+                        loss_diff_updated = true;
                     }
                 }
+
+                if !loss_diff_updated {
+                    continue;
+                }
+
                 let prob = (-loss_diff as f64 / temp).exp();
                 if rng.gen::<f64>() < prob {
                     self.costs[line][part] = next_cost as u32;
