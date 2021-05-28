@@ -4,10 +4,11 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::ops::Index;
 
-pub fn compute_shortest_cost<
-    G: Index<EdgeIndex, Output = T>,
-    T: Bounded + Num + Copy + PartialOrd,
->(
+pub trait Graph<T> {
+    fn get_cost(&self, edge: EdgeIndex) -> T;
+}
+
+pub fn compute_shortest_cost<G: Graph<T>, T: Bounded + Num + Copy + PartialOrd>(
     graph: &G,
     src: Pos,
     dest: Pos,
@@ -26,8 +27,8 @@ pub fn compute_shortest_cost<
         for dir in Dir::iter() {
             if let Some(q) = p.move_to(dir) {
                 let edge = EdgeIndex::from_move(p, dir);
-                if dist[q] > d + graph[edge] {
-                    dist[q] = d + graph[edge];
+                if dist[q] > d + graph.get_cost(edge) {
+                    dist[q] = d + graph.get_cost(edge);
                     queue.push(Reverse((UnwrapOrd(dist[q]), q)));
                 }
             }
@@ -36,10 +37,7 @@ pub fn compute_shortest_cost<
     dist[dest]
 }
 
-pub fn compute_shortest_path<
-    G: Index<EdgeIndex, Output = T>,
-    T: Bounded + Num + Copy + PartialOrd,
->(
+pub fn compute_shortest_path<G: Graph<T>, T: Bounded + Num + Copy + PartialOrd>(
     graph: &G,
     src: Pos,
     dest: Pos,
@@ -59,8 +57,8 @@ pub fn compute_shortest_path<
         for dir in Dir::iter() {
             if let Some(q) = p.move_to(dir) {
                 let edge = EdgeIndex::from_move(p, dir);
-                if dist[q] > d + graph[edge] {
-                    dist[q] = d + graph[edge];
+                if dist[q] > d + graph.get_cost(edge) {
+                    dist[q] = d + graph.get_cost(edge);
                     prev[q] = dir;
                     queue.push(Reverse((UnwrapOrd(dist[q]), q)));
                 }

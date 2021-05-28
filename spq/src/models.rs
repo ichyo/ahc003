@@ -1,3 +1,4 @@
+use crate::algorithms::Graph;
 use rand::prelude::*;
 use std::cmp::Ordering;
 use std::ops::{Index, IndexMut};
@@ -196,6 +197,12 @@ impl EdgeIndex {
         };
         EdgeIndex { line, x }
     }
+
+    pub fn choose<R: Rng>(rng: &mut R) -> EdgeIndex {
+        let line = LineIndex::choose(rng);
+        let x = rng.gen_range(0, GRID_LEN as u8 - 1);
+        EdgeIndex { line, x }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -237,7 +244,7 @@ impl<T: Copy> IndexMut<LineIndex> for GridLines<T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GridGraph<T: Copy>(GridLines<[T; GRID_LEN - 1]>);
 
 impl<T: Copy> GridGraph<T> {
@@ -280,6 +287,12 @@ impl<T: Copy> Index<EdgeIndex> for GridGraph<T> {
 impl<T: Copy> IndexMut<EdgeIndex> for GridGraph<T> {
     fn index_mut(&mut self, index: EdgeIndex) -> &mut Self::Output {
         &mut self.0[index.line][index.x as usize]
+    }
+}
+
+impl<T: Copy> Graph<T> for GridGraph<T> {
+    fn get_cost(&self, edge: EdgeIndex) -> T {
+        *self.index(edge)
     }
 }
 
