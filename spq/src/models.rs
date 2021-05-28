@@ -40,6 +40,7 @@ impl Dir {
     }
 }
 
+#[derive(Debug)]
 pub struct Grid<T: Copy>([[T; GRID_LEN]; GRID_LEN]);
 
 impl<T: Copy> Grid<T> {

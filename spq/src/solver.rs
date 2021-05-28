@@ -6,6 +6,8 @@ use std::convert::TryInto;
 use std::ops::Index;
 use std::time::{Duration, Instant};
 
+const NORM_P: u32 = 2;
+
 struct Record {
     query: Query,
     path: Vec<Dir>,
@@ -96,26 +98,9 @@ impl GraphEstimator {
     }
 
     fn insert_new_record(&mut self, query: &Query, path: &[Dir], response: u32) {
+        let this_turn = self.records.len();
         self.records.push(Record::new(query, path, response));
-        self.update_estimation();
-    }
 
-    fn update_estimation(&mut self) {
-        let step = 100;
-        let norm_p = 2;
-        let start_temp = 100000.0;
-        let end_temp = 100.0;
-
-        let start = Instant::now();
-        let time_limit = self.time_limit * 90 / 100 / 1000;
-
-        assert!(
-            self.visit_counts.len() + 1 == self.records.len(),
-            "{} + 1 != {}",
-            self.visit_counts.len(),
-            self.records.len()
-        );
-        let this_turn = self.records.len() - 1;
         let mut visit_count = GridLines::new([0; 2]);
         let mut total_cost = 0u32;
 
@@ -137,9 +122,20 @@ impl GraphEstimator {
 
         self.loss += (total_cost as i64 - self.records[this_turn].response as i64)
             .abs()
-            .pow(norm_p);
+            .pow(NORM_P);
         self.visit_counts.push(visit_count);
         self.total_costs.push(total_cost);
+
+        self.update_estimation();
+    }
+
+    fn update_estimation(&mut self) {
+        let step = 100;
+        let start_temp = 100000.0;
+        let end_temp = 100.0;
+
+        let start = Instant::now();
+        let time_limit = self.time_limit * 90 / 100 / 1000;
 
         let mut loops = 0;
         let mut updates_type1 = 0;
@@ -187,8 +183,8 @@ impl GraphEstimator {
                         let cur_total_cost = self.total_costs[turn] as i64;
                         let new_total_cost =
                             self.total_costs[turn] as i64 + sign * step * visit_count as i64;
-                        loss_diff -= (cur_total_cost - response).abs().pow(norm_p);
-                        loss_diff += (new_total_cost - response).abs().pow(norm_p);
+                        loss_diff -= (cur_total_cost - response).abs().pow(NORM_P);
+                        loss_diff += (new_total_cost - response).abs().pow(NORM_P);
                         loss_diff_updated = true;
                     }
                 }
@@ -243,8 +239,8 @@ impl GraphEstimator {
                         let cost_diff =
                             self.costs[line][new_part] as i64 - self.costs[line][old_part] as i64;
 
-                        loss_diff -= (cur_total_cost - response).abs().pow(norm_p);
-                        loss_diff += (cur_total_cost + cost_diff - response).abs().pow(norm_p);
+                        loss_diff -= (cur_total_cost - response).abs().pow(NORM_P);
+                        loss_diff += (cur_total_cost + cost_diff - response).abs().pow(NORM_P);
                     }
                 }
                 let prob = (-loss_diff as f64 / temp).exp();
