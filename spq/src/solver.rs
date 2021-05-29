@@ -11,12 +11,12 @@ const NORM_P: u32 = 2;
 
 const LINE_COST_LB: i64 = 1000;
 const LINE_COST_UB: i64 = 9000;
-const EDGE_COST_LB: i64 = -300;
-const EDGE_COST_UB: i64 = 300;
+const EDGE_COST_LB: i64 = -400;
+const EDGE_COST_UB: i64 = 400;
 
-const STEP: i64 = 100;
-const START_TEMP: f64 = 100000.0;
-const END_TEMP: f64 = 100.0;
+const STEP: i64 = 50;
+const START_TEMP: f64 = 10000.0;
+const END_TEMP: f64 = 1.0;
 
 struct Record {
     query: Query,
@@ -75,7 +75,7 @@ impl Graph<u32> for GraphEstimator {
 impl GraphEstimator {
     fn new(time_limit: Duration) -> GraphEstimator {
         GraphEstimator {
-            line_costs: GridLines::new([1000, 1000]),
+            line_costs: GridLines::new([LINE_COST_LB as u32, LINE_COST_LB as u32]),
             edge_costs: GridGraph::new(0),
             mid_x: GridLines::new(GRID_LEN as u8 / 2),
             records: Vec::new(),
@@ -107,7 +107,7 @@ impl GraphEstimator {
             );
             actual_loss += (cost_sum as i64 - self.records[i].response as i64)
                 .abs()
-                .pow(2);
+                .pow(NORM_P);
         }
         assert!(actual_loss == self.loss);
     }
@@ -375,6 +375,8 @@ pub fn run_solver<E: Environment>(env: &mut E, time_limit: Duration) {
             response as f64 / estimated_length as f64
         );
         estimator.insert_new_record(&query, &path, response);
+
+        #[cfg(feature = "log")]
         estimator.validate_cache();
     }
     debug!("line_costs={:?}", estimator.line_costs);
